@@ -4,12 +4,12 @@ import io
 import os
 import math
 
-# File path for the Excel sheet
-EXCEL_FILE = 'knife_components_V2.xlsx'
+# File path for the CSV file
+CSV_FILE = 'knife_components.csv'
 
 def load_data():
-    if os.path.exists(EXCEL_FILE):
-        df = pd.read_excel(EXCEL_FILE)
+    if os.path.exists(CSV_FILE):
+        df = pd.read_csv(CSV_FILE)
         # Ensure required columns exist and handle NaNs
         if 'Per_Knife_Cost' not in df.columns:
             df['Per_Knife_Cost'] = df['Purchase_Cost'] * df['Usage_Per_Knife'].fillna(0)
@@ -22,7 +22,7 @@ def load_data():
             df['Usage_Per_Knife'] = 0.0
         else:
             df['Usage_Per_Knife'] = df['Usage_Per_Knife'].fillna(0.0)
-        # Recalculate Per_Knife_Cost
+        # Recalculate Per_Knife_Cost to be safe
         df['Per_Knife_Cost'] = df['Purchase_Cost'] * df['Usage_Per_Knife']
         return df
     else:
@@ -31,7 +31,7 @@ def load_data():
         return pd.DataFrame(columns=cols)
 
 def save_data(df):
-    df.to_excel(EXCEL_FILE, index=False)
+    df.to_csv(CSV_FILE, index=False)
 
 st.title("Knife Build Cost Calculator")
 st.markdown("### DEBUG: This is version with MULTISELECT fasteners – 2025-02")
@@ -120,7 +120,7 @@ if not df.empty:
     if selections or fixed_total > 0:
         st.subheader("Selected / Included Components")
         for cat, info in selections.items():
-            if cat == "Fasteners" and isinstance(info[0], list):
+            if cat.lower() == "fastener" and isinstance(info[0], list):  # small improvement: case insensitive
                 st.write(f"- {cat}:")
                 for desc, qty, c in info[0]:
                     st.write(f"  - {desc} × {qty} (${c:.2f})")
@@ -190,35 +190,38 @@ if not df.empty:
                 st.rerun()
 
 st.header("Upload / Download Database")
-up = st.file_uploader("Upload .xlsx to replace current data", type=['xlsx'])
+up = st.file_uploader("Upload .csv to replace current data", type=['csv'])
 if up:
-    temp_df = pd.read_excel(up)
-    required = ['Category', 'Description', 'Purchase_Cost']
-    if all(c in temp_df.columns for c in required):
-        if 'Usage_Per_Knife' not in temp_df.columns:
-            temp_df['Usage_Per_Knife'] = 0.0
-        if 'Per_Knife_Cost' not in temp_df.columns:
+    try:
+        temp_df = pd.read_csv(up)
+        required = ['Category', 'Description', 'Purchase_Cost']
+        if all(c in temp_df.columns for c in required):
+            if 'Usage_Per_Knife' not in temp_df.columns:
+                temp_df['Usage_Per_Knife'] = 0.0
+            if 'Per_Knife_Cost' not in temp_df.columns:
+                temp_df['Per_Knife_Cost'] = temp_df['Purchase_Cost'] * temp_df['Usage_Per_Knife']
+            if 'Fixed_cost' not in temp_df.columns:
+                temp_df['Fixed_cost'] = 'N'
+            if 'Bar_Length' not in temp_df.columns:
+                temp_df['Bar_Length'] = pd.NA
+            temp_df['Fixed_cost'] = temp_df['Fixed_cost'].fillna('N')
+            temp_df['Usage_Per_Knife'] = temp_df['Usage_Per_Knife'].fillna(0.0)
             temp_df['Per_Knife_Cost'] = temp_df['Purchase_Cost'] * temp_df['Usage_Per_Knife']
-        if 'Fixed_cost' not in temp_df.columns:
-            temp_df['Fixed_cost'] = 'N'
-        if 'Bar_Length' not in temp_df.columns:
-            temp_df['Bar_Length'] = pd.NA
-        temp_df['Fixed_cost'] = temp_df['Fixed_cost'].fillna('N')
-        temp_df['Usage_Per_Knife'] = temp_df['Usage_Per_Knife'].fillna(0.0)
-        temp_df['Per_Knife_Cost'] = temp_df['Purchase_Cost'] * temp_df['Usage_Per_Knife']
-        save_data(temp_df)
-        st.success("Database updated from upload!")
-        st.rerun()
-    else:
-        st.error(f"Missing required columns: {', '.join(set(required) - set(temp_df.columns))}")
+            save_data(temp_df)
+            st.success("Database updated from upload!")
+            st.rerun()
+        else:
+            st.error(f"Missing required columns: {', '.join(set(required) - set(temp_df.columns))}")
+    except Exception as e:
+        st.error(f"Error reading CSV: {str(e)}")
 
 if not df.empty:
-    output = io.BytesIO()
-    df.to_excel(output, index=False)
+    output = io.StringIO()
+    df.to_csv(output, index=False)
     output.seek(0)
     st.download_button(
-        label="Download Current Database as Excel",
-        data=output.getvalue(),
-        file_name='knife_components.xlsx',
-        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        label="Download Current Database as CSV",
+        data=output.getvalue().encode('utf-8'),
+        file_name='knife_components.csv',
+        mime='text/csv'
     )
