@@ -5,7 +5,7 @@ import os
 import math
 
 # File path for the CSV file
-CSV_FILE = 'knife_components.csv'
+CSV_FILE = 'knife_components_V2.csv'
 
 def load_data():
     if os.path.exists(CSV_FILE):
@@ -136,5 +136,6 @@ if not df.empty:
         st.info("Select components above to calculate cost.")
 else:
     st.info("No components in database yet. Add or upload data below.")
+
 
 
