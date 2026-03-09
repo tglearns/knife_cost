@@ -4,12 +4,14 @@ import io
 import os
 import math
 
-# File path for the CSV file
-CSV_FILE = 'knife_components_V2.csv'
+# Get the absolute path to the directory this script is in
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CSV_FILE = os.path.join(BASE_DIR, 'knife_components_V2.csv')
 
 def load_data():
     if os.path.exists(CSV_FILE):
-        df = pd.read_csv(CSV_FILE)
+        # Use low_memory=False to avoid DtypeWarnings
+        df = pd.read_csv(CSV_FILE, low_memory=False)
         # Ensure required columns exist and handle NaNs
         if 'Per_Knife_Cost' not in df.columns:
             df['Per_Knife_Cost'] = df['Purchase_Cost'] * df['Usage_Per_Knife'].fillna(0)
@@ -136,6 +138,7 @@ if not df.empty:
         st.info("Select components above to calculate cost.")
 else:
     st.info("No components in database yet. Add or upload data below.")
+
 
 
 
